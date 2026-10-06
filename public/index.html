@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sponsorship Management System</title>
+<style>
+:root{--bg:#f5f6fa;--card:#fff;--tx:#1b1f2a;--mu:#6b7280;--bd:#e5e7eb;--ac:#4f46e5;--ok:#15803d;--okb:#dcfce7;--wa:#b45309;--wab:#fef3c7;--er:#b91c1c;--erb:#fee2e2;--in:#1d4ed8;--inb:#dbeafe}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1117;--card:#181b24;--tx:#e8eaf0;--mu:#9aa1b2;--bd:#2a2e3b;--ac:#818cf8;--ok:#4ade80;--okb:#14532d;--wa:#fbbf24;--wab:#422006;--er:#f87171;--erb:#450a0a;--in:#93c5fd;--inb:#1e3a8a}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,sans-serif}
+.app{display:flex;min-height:100vh}
+nav{width:210px;background:var(--card);border-right:1px solid var(--bd);padding:18px 12px;position:sticky;top:0;height:100vh;flex-shrink:0}
+.logo{font-weight:700;padding:0 8px 16px}
+nav button{display:block;width:100%;text-align:left;border:0;background:none;color:var(--mu);padding:9px 12px;border-radius:8px;font:inherit;cursor:pointer;margin-bottom:2px}
+nav button.on{background:var(--ac);color:#fff}
+main{flex:1;min-width:0;padding:22px 26px}
+h1{font-size:20px;margin:0 0 4px}.sub{color:var(--mu);margin:0 0 16px}h2{font-size:14px;margin:0 0 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px 16px}
+.k{color:var(--mu);font-size:12px;text-transform:uppercase}.v{font-size:22px;font-weight:700}
+.row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--bd)}.row:last-child{border:0}
+.bar{height:8px;background:var(--bd);border-radius:9px;overflow:hidden;margin:6px 0 14px}.bar i{display:block;height:100%;background:var(--ac)}
+.tools{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+input,select,textarea{padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--tx);font:inherit;width:100%}
+.tools input,.tools select{width:auto}
+.tw{overflow-x:auto;background:var(--card);border:1px solid var(--bd);border-radius:12px}
+table{border-collapse:collapse;width:100%;white-space:nowrap}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--bd)}
+th{font-size:12px;color:var(--mu);text-transform:uppercase;background:var(--bg)}tr:last-child td{border:0}
+.b{padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600}
+.g{background:var(--okb);color:var(--ok)}.y{background:var(--wab);color:var(--wa)}.r{background:var(--erb);color:var(--er)}.i{background:var(--inb);color:var(--in)}
+.btn{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit}
+.btn.p{background:var(--ac);border-color:var(--ac);color:#fff}.btn.d{color:var(--er)}
+.mu{color:var(--mu)}
+dialog{border:1px solid var(--bd);border-radius:14px;background:var(--card);color:var(--tx);width:min(480px,92vw);padding:20px}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+label{display:block;font-size:12px;color:var(--mu);margin:10px 0 3px}
+.err{color:var(--er);margin-top:10px;font-size:13px}
+@media(max-width:720px){.app{flex-direction:column}nav{width:100%;height:auto;position:static;display:flex;overflow-x:auto;gap:4px;padding:10px}.logo{display:none}nav button{width:auto;white-space:nowrap}main{padding:16px}}
+</style></head><body>
+<div class="app"><nav id="nav"></nav><main id="main">Loading…</main></div>
+<dialog id="dlg"><form id="frm" method="dialog"></form></dialog>
+<script>
+const inr=n=>n==null?'—':'₹'+Number(n).toLocaleString('en-IN'), nv=v=>v==null||v===''?'<span class="mu">—</span>':v;
+const cls={Paid:'g',Active:'g',Completed:'g',Available:'g',Upcoming:'i',Ongoing:'i','In Progress':'i',Partial:'y',Pending:'y',Negotiation:'y',Booked:'y',Overdue:'r',Delayed:'r',Cancelled:'r',Closed:'r'};
+const bd=s=>s?`<span class="b ${cls[s]||'i'}">${s}</span>`:nv(s);
+const api=async(m,u,b)=>{const r=await fetch(u,{method:m,headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined});const j=await r.json();if(!r.ok)throw new Error(j.error||'Request failed');return j};
+
+const REF={sponsor_id:['sponsors','sponsor_id',r=>r.company_name],event_id:['events','event_id',r=>r.event_name],
+ package_id:['packages','package_id',r=>`${r.event_name} – ${r.package_name}`],deal_id:['deals','deal_id',r=>`#${r.deal_id} ${r.company_name} (${r.package_name})`]};
+const ST=['Pending','Partial','Paid','Overdue'];
+const M={
+ sponsors:{t:'Sponsors',pk:'sponsor_id',cols:[['sponsor_id','ID'],['company_name','Company',v=>`<b>${v}</b>`],['industry','Industry'],['contact_name','Contact'],['contact_email','Email'],['contact_phone','Phone'],['company_size','Size'],['website','Website']],
+  form:[['company_name','Company name','text',1],['industry','Industry','text'],['contact_name','Contact name','text'],['contact_email','Email','email'],['contact_phone','Phone','text'],['company_size','Company size',['','Small','Medium','Large']],['website','Website','text']]},
+ events:{t:'Events',pk:'event_id',sf:'event_status',cols:[['event_id','ID'],['event_name','Event',v=>`<b>${v}</b>`],['start_date','Start'],['end_date','End'],['venue','Venue'],['total_budget','Budget',inr],['event_type','Type'],['expected_attendance','Attendance'],['event_status','Status',bd]],
+  form:[['event_name','Event name','text',1],['start_date','Start date','date',1],['end_date','End date','date'],['venue','Venue','text'],['total_budget','Total budget','number'],['event_type','Event type','text'],['expected_attendance','Expected attendance','number'],['event_status','Status',['Upcoming','Ongoing','Completed','Cancelled']]]},
+ packages:{t:'Sponsorship Packages',pk:'package_id',sf:'availability_status',cols:[['package_id','ID'],['event_name','Event'],['package_name','Package',v=>`<b>${nv(v)}</b>`],['package_price','Price',inr],['slots_left','Slots left',(v,r)=>`${v} / ${r.max_slots}`],['benefits','Benefits'],['availability_status','Status',bd]],
+  form:[['event_id','Event','ref',1],['package_name','Package name','text',1],['description','Description','text'],['package_price','Price','number'],['max_slots','Max slots','number'],['benefits','Benefits','text'],['availability_status','Availability',['Available','Booked','Closed']]]},
+ deals:{t:'Sponsorship Deals',pk:'deal_id',sf:'deal_status',cols:[['deal_id','ID'],['company_name','Sponsor',v=>`<b>${v}</b>`],['event_name','Event'],['package_name','Package'],['agreed_amount','Agreed',inr],['negotiated_discount','Disc.',v=>v+'%'],['received','Received',inr],['pending','Pending',inr],['contract_start_date','Start'],['contract_end_date','End'],['deal_status','Status',bd]],
+  form:[['sponsor_id','Sponsor','ref',1],['package_id','Package','ref',1],['deal_date','Deal date','date'],['agreed_amount','Agreed amount','number'],['deal_status','Status',['Pending','Negotiation','Active','Completed','Cancelled']],['negotiated_discount','Discount %','number'],['contract_start_date','Contract start','date'],['contract_end_date','Contract end','date']]},
+ payments:{t:'Payments',pk:'payment_id',sf:'payment_status',cols:[['payment_id','ID'],['company_name','Sponsor',v=>`<b>${v}</b>`],['event_name','Event'],['installment_no','Inst.',v=>'#'+v],['amount_due','Due',inr],['due_date','Due date'],['amount_paid','Paid',inr],['paid_date','Paid on'],['payment_method','Method'],['transaction_reference','Ref'],['payment_status','Status',bd]],
+  form:[['deal_id','Deal','ref',1],['installment_no','Installment no.','number',1],['amount_due','Amount due','number'],['due_date','Due date','date'],['amount_paid','Amount paid','number'],['paid_date','Paid date','date'],['payment_status','Status',ST],['payment_method','Method','text'],['transaction_reference','Transaction ref','text']]},
+ deliverables:{t:'Deliverables',pk:'deliverable_id',sf:'completion_status',cols:[['deliverable_id','ID'],['company_name','Sponsor',v=>`<b>${v}</b>`],['deliverable_type','Type'],['description','Description'],['deadline','Deadline'],['responsible_person','Owner'],['remarks','Remarks'],['completion_status','Status',bd]],
+  form:[['deal_id','Deal','ref',1],['deliverable_type','Type','text'],['description','Description','text'],['deadline','Deadline','date'],['completion_status','Status',['Pending','In Progress','Completed','Delayed']],['responsible_person','Responsible person','text'],['completion_date','Completion date','date'],['remarks','Remarks','text']]}
+};
+const NAV=[['dashboard','📊 Dashboard'],...Object.entries(M).map(([k,v])=>[k,v.t])];
+let tab='dashboard',rows=[],q='',flt='';
+const $=s=>document.querySelector(s);
+
+function nav(){$('#nav').innerHTML='<div class="logo">SponsorHub</div>'+NAV.map(n=>`<button class="${n[0]==tab?'on':''}" onclick="go('${n[0]}')">${n[1]}</button>`).join('')}
+async function go(t){tab=t;q='';flt='';nav();$('#main').innerHTML='Loading…';try{tab=='dashboard'?await dash():await list()}catch(e){$('#main').innerHTML=`<div class="card err">Could not load data: ${e.message}<br><span class="mu">Is the server running and MySQL configured in .env?</span></div>`}}
+
+async function dash(){
+ const [a,pk]=await Promise.all([api('GET','/api/dashboard'),api('GET','/api/packages')]);
+ const pct=a.expected?Math.round(a.received/a.expected*100):0;
+ $('#main').innerHTML=`<h1>Dashboard</h1><p class="sub">Live data from MySQL</p>
+ <div class="grid"><div class="card"><div class="k">Sponsors</div><div class="v">${a.sponsors}</div></div>
+ <div class="card"><div class="k">Active deals</div><div class="v">${a.activeDeals}</div></div>
+ <div class="card"><div class="k">Received</div><div class="v" style="color:var(--ok)">${inr(a.received)}</div></div>
+ <div class="card"><div class="k">Pending</div><div class="v" style="color:var(--wa)">${inr(a.expected-a.received)}</div></div>
+ <div class="card"><div class="k">Overdue</div><div class="v" style="color:var(--er)">${a.overdue.length}</div></div></div>
+ <div class="two"><div class="card"><h2>Collection progress (${pct}%)</h2><div class="bar"><i style="width:${pct}%"></i></div>
+ <h2>Overdue payments</h2>${a.overdue.map(p=>`<div class="row"><span>${p.company_name} · inst #${p.installment_no}</span><b style="color:var(--er)">${inr(p.amount_due)} · ${p.due_date}</b></div>`).join('')||'<span class="mu">None</span>'}</div>
+ <div class="card"><h2>Slots left per package</h2>${pk.map(p=>`<div class="row"><span>${p.event_name} · ${nv(p.package_name)}</span><b>${p.slots_left}/${p.max_slots}</b></div>`).join('')}</div>
+ <div class="card"><h2>Deliverables due in 7 days (or late)</h2>${a.upcoming.map(d=>`<div class="row"><span>${d.company_name} · ${d.deliverable_type}</span><span>${d.deadline} ${bd(d.completion_status)}</span></div>`).join('')||'<span class="mu">None</span>'}</div></div>`}
+
+async function list(){rows=await api('GET','/api/'+tab);if(tab=='deals')rows.forEach(r=>r.pending=r.agreed_amount-r.received);render()}
+function render(){
+ const m=M[tab];let r=rows;
+ if(flt)r=r.filter(x=>x[m.sf]==flt);
+ if(q)r=r.filter(x=>JSON.stringify(Object.values(x)).toLowerCase().includes(q.toLowerCase()));
+ const opts=m.sf?[...new Set(rows.map(x=>x[m.sf]))]:[];
+ $('#main').innerHTML=`<h1>${m.t}</h1><p class="sub">${r.length} record(s)</p>
+ <div class="tools"><input type="search" id="q" placeholder="Search…" value="${q}">
+ ${m.sf?`<select id="f"><option value="">All statuses</option>${opts.map(o=>`<option ${o==flt?'selected':''}>${o}</option>`).join('')}</select>`:''}
+ <button class="btn p" onclick="openForm()">+ Add</button></div>
+ <div class="tw"><table><thead><tr>${m.cols.map(c=>`<th>${c[1]}</th>`).join('')}<th></th></tr></thead><tbody>
+ ${r.map(x=>`<tr>${m.cols.map(c=>`<td>${c[2]&&x[c[0]]!=null?c[2](x[c[0]],x):nv(x[c[0]])}</td>`).join('')}
+ <td><button class="btn" onclick="openForm(${x[m.pk]})">Edit</button> <button class="btn d" onclick="del(${x[m.pk]})">Delete</button></td></tr>`).join('')||'<tr><td>No records</td></tr>'}
+ </tbody></table></div>`;
+ const i=$('#q');i.oninput=e=>{q=e.target.value;const p=i.selectionStart;render();const n=$('#q');n.focus();n.setSelectionRange(p,p)};
+ const f=$('#f');if(f)f.onchange=e=>{flt=e.target.value;render()}}
+
+async function openForm(id){
+ const m=M[tab],cur=id!=null?rows.find(x=>x[m.pk]==id):{};
+ const refs={};for(const f of m.form)if(f[2]=='ref')refs[f[0]]=await api('GET','/api/'+REF[f[0]][0]);
+ const inp=f=>{const [k,l,t,req]=f,v=cur[k]??'',r=req?'required':'';
+  if(t=='ref'){const [,pk,lab]=REF[k];return `<select name="${k}" ${r}><option value="">Select…</option>${refs[k].map(o=>`<option value="${o[pk]}" ${o[pk]==v?'selected':''}>${lab(o)}</option>`).join('')}</select>`}
+  if(Array.isArray(t))return `<select name="${k}">${t.map(o=>`<option ${o==v?'selected':''}>${o}</option>`).join('')}</select>`;
+  return `<input name="${k}" type="${t}" value="${v}" ${t=='number'?'step="any"':''} ${r}>`};
+ $('#frm').innerHTML=`<h2>${id!=null?'Edit':'Add'} – ${m.t}</h2>${m.form.map(f=>`<label>${f[1]}${f[3]?' *':''}</label>${inp(f)}`).join('')}
+ <div class="err" id="err"></div><div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+ <button type="button" class="btn" onclick="$('#dlg').close()">Cancel</button><button class="btn p">Save</button></div>`;
+ $('#frm').onsubmit=async e=>{e.preventDefault();const b=Object.fromEntries(new FormData(e.target));
+  try{id!=null?await api('PUT',`/api/${tab}/${id}`,b):await api('POST','/api/'+tab,b);$('#dlg').close();await list()}catch(x){$('#err').textContent=x.message}};
+ $('#dlg').showModal()}
+async function del(id){if(!confirm('Delete record #'+id+'?'))return;try{await api('DELETE',`/api/${tab}/${id}`);await list()}catch(e){alert(e.message)}}
+go('dashboard');
+</script></body></html>
